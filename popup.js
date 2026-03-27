@@ -122,7 +122,6 @@ document.getElementById("fill").addEventListener("click", async () => {
     const selector = document.getElementById("selector").value;
     const values = document.getElementById("values").value;
     const mode = document.getElementById("mode").value;
-    const onlyNumber = document.getElementById("onlyNumber").checked;
 
     let delimiter = delimiterSelect.value;
     if (delimiter === "custom") {
@@ -148,18 +147,11 @@ document.getElementById("fill").addEventListener("click", async () => {
     let splitValues;
 
     // =========================
-    // 🔥 MODE ANGKA SAJA
+    // 🔥 DEFAULT: HANYA ANGKA
     // =========================
-    if (onlyNumber) {
-        splitValues = text.match(/[\d.,]+/g) || []   // ambil hanya angka
-    } else {
-        let delimiter = delimiterSelect.value;
-        if (delimiter === "custom") {
-            delimiter = customInput.value || " ";
-        }
-
-        splitValues = text.split(new RegExp(`[${delimiter}\\s]+`)).filter(v => v);
-    }
+    // Ambil semua angka/nominal dari teks clipboard (mis. "13 Bulan" -> 13).
+    const normalized = String(text ?? "").replace(/[\u200B-\u200D\uFEFF]/g, "");
+    splitValues = normalized.match(/-?\d[\d.,]*/g) || [];
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -218,12 +210,52 @@ function fillAdvanced(selector, values, mode) {
         if (values[vi] === undefined) break;
 
         const input = inputs[i];
-        input.value = values[vi];
+        if (
+            input?.tagName?.toLowerCase?.() === "input" &&
+            input?.type?.toLowerCase?.() === "file"
+        ) {
+            continue;
+        }
+        if (input?.disabled || input?.readOnly) {
+            continue;
+        }
+        const raw = values[vi];
+        // Pastikan yang di-set hanya angka (buang semua huruf).
+        let candidate = String(raw ?? "").replace(/[^\d.,\-]/g, "");
+        
+        // Skip nilai yang benar-benar kosong (tanpa angka) agar tidak membuang urutan input
+        if (candidate === "") {
+            vi++;
+            i--;
+            continue;
+        }
 
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        const inputType = input?.type?.toLowerCase?.() || "";
 
-        vi++;
+        if (inputType === "number") {
+            // input[type="number"] biasanya tidak menerima format dengan koma ribuan.
+            candidate = candidate.replace(/[,\s]+/g, "");
+
+            // Jika ada lebih dari 1 titik, anggap yang selain titik terakhir adalah pemisah ribuan.
+            if (candidate.includes(".")) {
+                const parts = candidate.split(".");
+                if (parts.length > 2) {
+                    candidate = parts.slice(0, -1).join("") + "." + parts[parts.length - 1];
+                }
+            }
+        }
+
+        let success = false;
+        try {
+            input.value = candidate;
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            success = true;
+        } catch (e) {}
+
+        // Hanya consume 1 nilai jika berhasil diset,
+        // supaya urutan input tidak bergeser (menghindari "kosong" di tengah).
+        if (success) vi++;
     }
 }
 
@@ -513,10 +545,26 @@ function fillRecordedData(steps, fSel) {
         try {
             const el = wrapper.querySelector(step.selector);
             if (el) {
-                el.value = step.value;
-                el.dispatchEvent(new Event("input", { bubbles: true }));
-                el.dispatchEvent(new Event("change", { bubbles: true }));
-                successCount++;
+                const inputType = el?.type?.toLowerCase?.() || "";
+                if (inputType === "file" || el?.disabled) return;
+
+                let candidate = String(step.value ?? "").replace(/[^\d.,\-]/g, "");
+                if (inputType === "number") {
+                    candidate = candidate.replace(/[,\s]+/g, "");
+                    if (candidate.includes(".")) {
+                        const parts = candidate.split(".");
+                        if (parts.length > 2) {
+                            candidate = parts.slice(0, -1).join("") + "." + parts[parts.length - 1];
+                        }
+                    }
+                }
+
+                try {
+                    el.value = candidate;
+                    el.dispatchEvent(new Event("input", { bubbles: true }));
+                    el.dispatchEvent(new Event("change", { bubbles: true }));
+                    successCount++;
+                } catch (e) {}
             }
         } catch(e) {}
     });
