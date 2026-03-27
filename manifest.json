@@ -1,0 +1,36 @@
+{
+    "manifest_version": 3,
+    "name": "Auto Fill Input Pro",
+    "version": "4.0",
+    "description": "Auto fill input dengan preset + clipboard + shortcut",
+    "permissions": [
+        "scripting",
+        "activeTab",
+        "storage",
+        "clipboardRead"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "commands": {
+        "auto-fill": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+F"
+            },
+            "description": "Auto Fill dari Clipboard"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ]
+        }
+    ]
+}

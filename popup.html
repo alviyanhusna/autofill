@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Auto Fill</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            width: 320px;
+            padding: 12px;
+            background: #0f172a;
+            color: white;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 6px;
+            border-radius: 6px;
+            border: none;
+            background: #1e293b;
+            color: white;
+        }
+
+        textarea {
+            height: 70px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            background: #38bdf8;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .row {
+            display: flex;
+            gap: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h3>Auto Fill</h3>
+
+    <label>Preset</label>
+    <div class="row">
+        <select id="presetList"></select>
+        <button id="savePreset">Save</button>
+        <button id="deletePreset">Delete</button>
+    </div>
+
+    <label>Selector</label>
+    <input id="selector" placeholder="#form input[id^='target'], #form input[id^='pagu']">
+
+    <label>Values (manual optional)</label>
+    <textarea id="values" placeholder="Kosongkan jika pakai clipboard"></textarea>
+
+    <label>
+        <input type="checkbox" id="onlyNumber" checked>
+        Ambil angka saja (hapus teks seperti "Dokumen")
+    </label>
+
+    <div class="row">
+        <select id="delimiter">
+            <option value=" ">Spasi</option>
+            <option value=",">Koma</option>
+            <option value="|">Pipe</option>
+            <option value="custom">Custom</option>
+        </select>
+
+        <select id="mode">
+            <option value="pair">Auto Pair</option>
+            <option value="single">Single</option>
+        </select>
+    </div>
+
+    <input id="customDelimiter" placeholder="Custom delimiter" style="display:none">
+
+    <button id="fill">Auto Fill</button>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
