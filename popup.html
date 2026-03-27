@@ -47,9 +47,18 @@
 
 <body>
 
-    <h3>Auto Fill</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0;">Auto Fill</h3>
+    </div>
 
-    <label>Preset</label>
+    <div class="row" style="margin-bottom: 15px;">
+        <button id="btnTab1" style="background: #38bdf8; color: #0f172a;">Manual Fill</button>
+        <button id="btnTab2" style="background: #1e293b; color: white;">Record Flow</button>
+    </div>
+
+    <!-- TAB 1: MANUAL FILL -->
+    <div id="tab1">
+        <label>Preset</label>
     <div class="row">
         <select id="presetList"></select>
         <button id="savePreset">Save</button>
@@ -83,7 +92,33 @@
 
     <input id="customDelimiter" placeholder="Custom delimiter" style="display:none">
 
-    <button id="fill">Auto Fill</button>
+        <button id="fill">Auto Fill</button>
+    </div>
+
+    <!-- TAB 2: RECORD FLOW -->
+    <div id="tab2" style="display: none;">
+        <label>Form Selector / Target Wrapper (Opsional)</label>
+        <input type="text" id="recordFormSelector" placeholder="Contoh: #modal-dialog atau .card">
+
+        <label style="margin-top: 10px; display: block;">Profile Record</label>
+        <div class="row">
+            <select id="recordProfileList"></select>
+            <button id="deleteRecordProfile" style="background: #ef4444; color: white;">Delete</button>
+        </div>
+        <div class="row" style="margin-top: 5px;">
+            <input type="text" id="newProfileInput" placeholder="Nama profile baru..." style="margin-bottom: 0;">
+            <button id="saveRecordProfile" style="background: #22c55e; color: white;">Simpan/Update</button>
+        </div>
+
+        <button id="btnRecordForm" style="display:none; margin-top: 15px; background: #4ade80; color: #0f172a;">▶ Record Form (Auto Click)</button>
+        <button id="btnRecordInput" style="margin-top: 8px; background: #f43f5e; color: white;">● Start Record Input</button>
+
+        <label style="margin-top: 15px; display: block;">Recorded Data</label>
+        <textarea id="recordedData" placeholder="Data rekam akan muncul di sini" style="height: 120px; font-family: monospace; font-size: 11px;" readonly></textarea>
+        
+        <button id="btnClearRecord" style="margin-bottom: 8px; background: #64748b; color: white; padding: 6px;">Clear Record</button>
+        <button id="btnEksekusi" style="background: #eab308; color: #0f172a;">⚡ Eksekusi Autofill</button>
+    </div>
 
     <script src="popup.js"></script>
 </body>

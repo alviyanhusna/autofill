@@ -30,6 +30,29 @@ chrome.commands.onCommand.addListener(async (command) => {
             });
         });
     }
+
+    if (command === "auto-fill-record") {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
+        chrome.storage.local.get(["recordedSteps", "recordedFormSelector"], (data) => {
+            const steps = data.recordedSteps || [];
+            if(steps.length === 0) {
+                chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: () => alert("Tidak ada data record untuk dieksekusi!")
+                });
+                return;
+            }
+
+            const fSelStr = data.recordedFormSelector || "";
+            
+            chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: fillRecordedData,
+                args: [steps, fSelStr]
+            });
+        });
+    }
 });
 
 function fillAdvanced(selector, values, mode) {
@@ -56,4 +79,30 @@ function fillAdvanced(selector, values, mode) {
 
         vi++;
     }
+}
+
+function fillRecordedData(steps, fSel) {
+    let successCount = 0;
+    
+    let wrapper = document;
+    if (fSel) {
+        wrapper = document.querySelector(fSel);
+        if (!wrapper) {
+            alert(`Target form "${fSel}" tidak ditemukan di layar!`);
+            return;
+        }
+    }
+
+    steps.forEach(step => {
+        try {
+            const el = wrapper.querySelector(step.selector);
+            if (el) {
+                el.value = step.value;
+                el.dispatchEvent(new Event("input", { bubbles: true }));
+                el.dispatchEvent(new Event("change", { bubbles: true }));
+                successCount++;
+            }
+        } catch(e) {}
+    });
+    console.log(`Berhasil mengeksekusi autofill pada ${successCount} field.`);
 }
