@@ -18,14 +18,14 @@
     "commands": {
         "auto-fill": {
             "suggested_key": {
-                "default": "Alt+Shift+F",
+                "default": "Ctrl+Shift+F",
                 "mac": "Command+Shift+F"
             },
             "description": "Auto Fill dari Clipboard"
         },
         "auto-fill-record": {
             "suggested_key": {
-                "default": "Alt+Shift+E",
+                "default": "Ctrl+Shift+E",
                 "mac": "Command+Shift+E"
             },
             "description": "Eksekusi Autofill (Profile Record)"

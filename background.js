@@ -1,32 +1,49 @@
 chrome.commands.onCommand.addListener(async (command) => {
     if (command === "auto-fill") {
-
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id) return;
 
-        chrome.storage.local.get(["selector", "delimiter", "mode"], async (data) => {
+        chrome.storage.local.get(["selector", "delimiter", "mode", "presets", "lastPreset"], async (data) => {
+            let selector = data.selector || "";
+            let delimiter = data.delimiter || "";
+            let mode = data.mode || "";
 
-            if (!data.selector) {
-                alert("Preset belum diset!");
+            if (!selector && data.lastPreset && data.presets?.[data.lastPreset]) {
+                const preset = data.presets[data.lastPreset];
+                selector = preset.selector || "";
+                delimiter = preset.delimiter || "";
+                mode = preset.mode || "";
+            }
+
+            if (!selector) {
+                await notifyInTab(tab.id, "Preset belum diset! Pilih preset dulu di popup.");
                 return;
             }
 
             let text = "";
-
             try {
-                text = await navigator.clipboard.readText();
+                const result = await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: readClipboardInPage
+                });
+                text = result?.[0]?.result || "";
             } catch {
-                alert("Clipboard gagal dibaca!");
+                await notifyInTab(tab.id, "Clipboard gagal dibaca! Fokuskan halaman lalu coba lagi.");
                 return;
             }
 
-            let delimiter = data.delimiter || " ";
+            if (!text.trim()) {
+                await notifyInTab(tab.id, "Clipboard kosong atau tidak bisa diakses.");
+                return;
+            }
 
+            delimiter = delimiter || " ";
             const values = text.split(new RegExp(`[${delimiter}\\s]+`)).filter(v => v);
 
             chrome.scripting.executeScript({
                 target: { tabId: tab.id },
                 func: fillAdvanced,
-                args: [data.selector, values, data.mode || "pair"]
+                args: [selector, values, mode || "pair"]
             });
         });
     }
@@ -105,4 +122,20 @@ function fillRecordedData(steps, fSel) {
         } catch(e) {}
     });
     console.log(`Berhasil mengeksekusi autofill pada ${successCount} field.`);
+}
+
+async function notifyInTab(tabId, message) {
+    try {
+        await chrome.scripting.executeScript({
+            target: { tabId },
+            func: (msg) => alert(msg),
+            args: [message]
+        });
+    } catch (e) {
+        console.warn("AutoFill notification failed:", e);
+    }
+}
+
+async function readClipboardInPage() {
+    return navigator.clipboard.readText();
 }

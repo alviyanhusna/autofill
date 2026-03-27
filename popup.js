@@ -32,6 +32,13 @@ delimiterSelect.addEventListener("change", () => {
     customInput.style.display = delimiterSelect.value === "custom" ? "block" : "none";
 });
 
+function persistShortcutConfigFromUI() {
+    const selector = document.getElementById("selector").value || "";
+    const mode = document.getElementById("mode").value || "pair";
+    const delimiter = delimiterSelect.value || " ";
+    chrome.storage.local.set({ selector, delimiter, mode });
+}
+
 function loadPresets() {
     chrome.storage.local.get(["presets", "lastPreset"], (data) => {
         const presets = data.presets || {};
@@ -54,6 +61,7 @@ function loadPresets() {
             document.getElementById("selector").value = preset.selector;
             document.getElementById("delimiter").value = preset.delimiter;
             document.getElementById("mode").value = preset.mode;
+            persistShortcutConfigFromUI();
 
             return; // penting biar gak lanjut ke bawah
         }
@@ -67,6 +75,7 @@ function loadPresets() {
             document.getElementById("selector").value = preset.selector;
             document.getElementById("delimiter").value = preset.delimiter;
             document.getElementById("mode").value = preset.mode;
+            persistShortcutConfigFromUI();
         }
     });
 }
@@ -84,6 +93,7 @@ presetList.addEventListener("change", () => {
         document.getElementById("selector").value = preset.selector;
         document.getElementById("delimiter").value = preset.delimiter;
         document.getElementById("mode").value = preset.mode;
+        persistShortcutConfigFromUI();
     });
 });
 
@@ -121,6 +131,7 @@ document.getElementById("fill").addEventListener("click", async () => {
 
     // simpan config
     chrome.storage.local.set({ lastPreset: presetList.value });
+    persistShortcutConfigFromUI();
 
     let text = values;
 
