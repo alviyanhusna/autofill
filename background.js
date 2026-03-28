@@ -22,18 +22,30 @@ chrome.commands.onCommand.addListener(async (command) => {
 
             let text = "";
             try {
-                const result = await chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    func: readClipboardInPage
-                });
-                text = result?.[0]?.result || "";
-            } catch {
-                await notifyInTab(tab.id, "Clipboard gagal dibaca! Fokuskan halaman lalu coba lagi.");
-                return;
+                // 1. Prioritas: Ambil langsung dari Background SW (Chrome/Edge 116+ mendukung akses ini)
+                if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.readText) {
+                    text = await navigator.clipboard.readText();
+                }
+            } catch (e) {
+                console.warn("Background clipboard failed", e);
             }
 
-            if (!text.trim()) {
-                await notifyInTab(tab.id, "Clipboard kosong atau tidak bisa diakses.");
+            if (!text) {
+                // 2. Fallback: Eksekusi di page (Edge lama / policy tertentu bisa memblokir ini)
+                try {
+                    const result = await chrome.scripting.executeScript({
+                        target: { tabId: tab.id },
+                        func: readClipboardInPage
+                    });
+                    text = result?.[0]?.result || "";
+                } catch {
+                    await notifyInTab(tab.id, "Clipboard gagal dibaca! Fokuskan halaman lalu coba lagi.");
+                    return;
+                }
+            }
+
+            if (!text || !text.trim()) {
+                await notifyInTab(tab.id, "Clipboard kosong atau tidak bisa diakses.\n\n[INFO EDGE]: Jika shortcut diblokir browser, coba klik ikon 'Site Info' gembok di URL -> Izinkan Clipboard/Paste, atau gunakan klik manual tombol Auto Fill dari popup extension.");
                 return;
             }
 
@@ -192,5 +204,20 @@ async function notifyInTab(tabId, message) {
 }
 
 async function readClipboardInPage() {
-    return navigator.clipboard.readText();
+    try {
+        return await navigator.clipboard.readText();
+    } catch (e) {
+        // Fallback untuk browser Edge/Chrome yang membatasi API clipboard di content script
+        try {
+            const t = document.createElement("textarea");
+            document.body.appendChild(t);
+            t.focus();
+            document.execCommand("paste");
+            const val = t.value;
+            document.body.removeChild(t);
+            return val;
+        } catch (err) {
+            return "";
+        }
+    }
 }

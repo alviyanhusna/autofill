@@ -139,8 +139,20 @@ document.getElementById("fill").addEventListener("click", async () => {
         try {
             text = await navigator.clipboard.readText();
         } catch {
-            alert("Clipboard gagal dibaca!");
-            return;
+            try {
+                // Fallback execCommand untuk edge
+                const t = document.createElement("textarea");
+                document.body.appendChild(t);
+                t.focus();
+                document.execCommand("paste");
+                text = t.value;
+                document.body.removeChild(t);
+            } catch (err) {}
+
+            if (!text) {
+                alert("Clipboard gagal dibaca! (Pastikan izinkan / allow paste di browser Edge)");
+                return;
+            }
         }
     }
 
