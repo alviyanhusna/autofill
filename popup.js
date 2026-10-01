@@ -6,26 +6,26 @@ const customInput = document.getElementById("customDelimiter");
 // --- TAB SWITCHING LOGIC ---
 const btnTab1 = document.getElementById("btnTab1");
 const btnTab2 = document.getElementById("btnTab2");
+const btnTab3 = document.getElementById("btnTab3");
 const tab1 = document.getElementById("tab1");
 const tab2 = document.getElementById("tab2");
+const tab3 = document.getElementById("tab3");
+const tabPanels = [tab1, tab2, tab3];
+const tabButtons = [btnTab1, btnTab2, btnTab3];
 
-btnTab1.addEventListener("click", () => {
-    tab1.style.display = "block";
-    tab2.style.display = "none";
-    btnTab1.style.background = "#38bdf8";
-    btnTab1.style.color = "#0f172a";
-    btnTab2.style.background = "#1e293b";
-    btnTab2.style.color = "white";
-});
+function showTab(index) {
+    tabPanels.forEach((panel, i) => {
+        panel.style.display = i === index ? "block" : "none";
+    });
+    tabButtons.forEach((btn, i) => {
+        btn.classList.toggle("active", i === index);
+        btn.classList.toggle("inactive", i !== index);
+    });
+}
 
-btnTab2.addEventListener("click", () => {
-    tab1.style.display = "none";
-    tab2.style.display = "block";
-    btnTab2.style.background = "#38bdf8";
-    btnTab2.style.color = "#0f172a";
-    btnTab1.style.background = "#1e293b";
-    btnTab1.style.color = "white";
-});
+btnTab1.addEventListener("click", () => showTab(0));
+btnTab2.addEventListener("click", () => showTab(1));
+btnTab3.addEventListener("click", () => showTab(2));
 
 // --- TAB 1 LOGIC ---
 delimiterSelect.addEventListener("change", () => {
@@ -582,6 +582,184 @@ function fillRecordedData(steps, fSel) {
     });
     console.log(`Berhasil mengeksekusi autofill pada ${successCount} field.`);
 }
+
+// ====== TAB 3: RECORD DARI GAMBAR ======
+const imageFileInput  = document.getElementById("imageFileInput");
+const imagePreview    = document.getElementById("imagePreview");
+const imageNumColsEl  = document.getElementById("imageNumCols");
+const btnReadGambar   = document.getElementById("btnReadGambar");
+const imageOcrStatus = document.getElementById("imageOcrStatus");
+const imageRecordRead = document.getElementById("imageRecordRead");
+const btnParseImageRead = document.getElementById("btnParseImageRead");
+const imageRecordInput = document.getElementById("imageRecordInput");
+const btnClearImageRecord = document.getElementById("btnClearImageRecord");
+const btnEksekusiImage = document.getElementById("btnEksekusiImage");
+
+let selectedImageDataUrl = null;
+let ocrWorker = null;
+
+function setImageOcrStatus(msg) {
+    imageOcrStatus.textContent = msg || "";
+}
+
+function displayImageRecordInput(steps) {
+    if (!steps || steps.length === 0) {
+        imageRecordInput.value = "";
+        return;
+    }
+    imageRecordInput.value = JSON.stringify(steps, null, 2);
+}
+
+function persistImageRecord(readText, steps) {
+    chrome.storage.local.set({
+        imageRecordRead: readText,
+        imageRecordedSteps: steps || [],
+    });
+}
+
+function applyParseFromRecordRead() {
+    const parsed = ImageRecord.parseFromText(imageRecordRead.value);
+    displayImageRecordInput(parsed.steps);
+    persistImageRecord(imageRecordRead.value, parsed.steps);
+    return parsed.steps;
+}
+
+async function getOcrWorker() {
+    if (ocrWorker) return ocrWorker;
+    const workerPath = chrome.runtime.getURL("lib/worker.min.js");
+    const langPath = chrome.runtime.getURL("lib/lang-data/");
+    const corePath = chrome.runtime.getURL("lib/");
+
+    ocrWorker = await Tesseract.createWorker("eng", 1, {
+        workerPath,
+        langPath,
+        corePath,
+        workerBlobURL: false,
+    });
+    await ImageOcr.configureWorker(ocrWorker);
+    return ocrWorker;
+}
+
+function loadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+imageFileInput.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    selectedImageDataUrl = await loadImageFromFile(file);
+    imagePreview.src = selectedImageDataUrl;
+    imagePreview.style.display = "block";
+    setImageOcrStatus("Gambar siap. Klik Read Gambar.");
+});
+
+document.addEventListener("paste", async (e) => {
+    if (tab3.style.display === "none") return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+        if (item.type.startsWith("image/")) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (!file) return;
+            selectedImageDataUrl = await loadImageFromFile(file);
+            imagePreview.src = selectedImageDataUrl;
+            imagePreview.style.display = "block";
+            setImageOcrStatus("Gambar dari paste siap. Klik Read Gambar.");
+            break;
+        }
+    }
+});
+
+btnReadGambar.addEventListener("click", async () => {
+    if (!selectedImageDataUrl) {
+        alert("Pilih atau paste gambar terlebih dahulu.");
+        return;
+    }
+
+    btnReadGambar.disabled = true;
+    setImageOcrStatus("Membaca gambar (OCR)...");
+
+    try {
+        const worker  = await getOcrWorker();
+        const numCols = parseInt(imageNumColsEl.value, 10) || 0;
+        const { tokens, method } = await ImageOcr.recognizeTableImage(worker, selectedImageDataUrl, numCols);
+        const parsed = ImageRecord.parseFromTokens(tokens);
+
+        imageRecordRead.value = parsed.recordRead;
+        displayImageRecordInput(parsed.steps);
+        persistImageRecord(parsed.recordRead, parsed.steps);
+        setImageOcrStatus(
+            tokens.length
+                ? `OCR selesai: ${tokens.length} angka (${method}). Token ke-2 diabaikan saat mapping.`
+                : "OCR tidak menemukan angka. Coba crop gambar hanya baris tabel, atau edit Record Read manual."
+        );
+    } catch (err) {
+        console.error("OCR error:", err);
+        setImageOcrStatus("");
+        alert("OCR gagal: " + (err?.message || err));
+    } finally {
+        btnReadGambar.disabled = false;
+    }
+});
+
+btnParseImageRead.addEventListener("click", () => {
+    const steps = applyParseFromRecordRead();
+    if (!steps.length) {
+        alert("Tidak ada angka yang bisa diparse dari Record Read.");
+        return;
+    }
+    setImageOcrStatus(`Record Input dibuat (${steps.length} field).`);
+});
+
+imageRecordRead.addEventListener("change", () => {
+    applyParseFromRecordRead();
+});
+
+btnClearImageRecord.addEventListener("click", () => {
+    selectedImageDataUrl = null;
+    imageFileInput.value = "";
+    imagePreview.src = "";
+    imagePreview.style.display = "none";
+    imageRecordRead.value = "";
+    imageRecordInput.value = "";
+    setImageOcrStatus("");
+    chrome.storage.local.remove(["imageRecordRead", "imageRecordedSteps"]);
+});
+
+btnEksekusiImage.addEventListener("click", async () => {
+    let steps = [];
+    try {
+        steps = JSON.parse(imageRecordInput.value || "[]");
+    } catch {
+        alert("Record Input JSON tidak valid!");
+        return;
+    }
+
+    if (!Array.isArray(steps) || steps.length === 0) {
+        alert("Tidak ada Record Input untuk dieksekusi!");
+        return;
+    }
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+
+    chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: fillRecordedData,
+        args: [steps, ""],
+    });
+});
+
+chrome.storage.local.get(["imageRecordRead", "imageRecordedSteps"], (data) => {
+    if (data.imageRecordRead) imageRecordRead.value = data.imageRecordRead;
+    if (data.imageRecordedSteps) displayImageRecordInput(data.imageRecordedSteps);
+});
 
 loadPresets();
 loadRecordProfiles();

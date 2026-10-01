@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "Auto Fill Input Pro",
-    "version": "4.0",
-    "description": "Auto fill input dengan preset + clipboard + shortcut",
+    "version": "4.1",
+    "description": "Auto fill input dengan preset + clipboard + shortcut + OCR gambar",
     "permissions": [
         "scripting",
         "activeTab",
@@ -38,6 +38,20 @@
             ],
             "js": [
                 "content.js"
+            ]
+        }
+    ],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self'"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "lib/*",
+                "lib/lang-data/*"
+            ],
+            "matches": [
+                "<all_urls>"
             ]
         }
     ]
